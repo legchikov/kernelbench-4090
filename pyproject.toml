@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kb4090"
+version = "0.1.0"
+description = "Hardened KernelBench evaluation and coding-agent experiments on a single RTX 4090"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+# PyTorch is not listed on purpose: install the build that matches your CUDA driver first.
+dependencies = ["numpy>=1.24", "pyyaml>=6"]
+
+[project.optional-dependencies]
+gpu = ["nvidia-ml-py>=12", "ninja"]
+plot = ["matplotlib>=3.7"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+kb4090 = "kb4090.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["kb4090*"]
+
+[tool.setuptools.package-data]
+kb4090 = ["prompts/*.md", "templates/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["gpu: needs a CUDA GPU (skipped automatically when none is present)"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["redteam/candidates", "redteam/tasks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "B008"]

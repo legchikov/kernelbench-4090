@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Agent workspaces are large and may contain transcripts you haven't reviewed yet.
+runs/
+
+# Results: commit the ledger and tables you publish; per-eval JSON and logs stay local.
+results/evals/
+results/baseline/
+results/noise/
+results/redteam/
+results/env/
+*.log
+.dev_eval/

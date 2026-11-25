@@ -1,0 +1,8 @@
+# Overlay for the in-loop EAT score (eat/eval.sh), so one evaluation of all problems finishes in
+# minutes. The final, published numbers come from `kb4090 eat-final`, which ignores this file.
+correctness:
+  seeds: 3
+timing:
+  rounds: 3
+  iters_per_round: 10
+  wait_for_idle_s: 300

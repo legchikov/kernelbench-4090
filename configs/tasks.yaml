@@ -1,0 +1,43 @@
+# The task subset. PROPOSAL v0: prune it after Phase 1 (memory and runtime-window checks on your
+# card), then FREEZE it before the first agent run. Changing tasks mid-study invalidates comparisons.
+#
+# Paths are relative to <kernelbench_root>/KernelBench/. Per-task options:
+#   perturb: false     don't change input values between timing iterations (rarely needed)
+#   sol_margin: 0.5    loosen the speed-of-light check where inputs have exploitable structure
+#   enabled: false     keep the entry but skip it
+
+tasks:
+  # Level 1: single operators. Mix of compute-bound and memory-bound.
+  - {id: L1-001-matmul,        level: 1, path: level1/1_Square_matrix_multiplication_.py,
+     notes: "compute-bound GEMM; where the TF32 baseline matters most"}
+  - {id: L1-004-gemv,          level: 1, path: level1/4_Matrix_vector_multiplication_.py,
+     notes: "memory-bound"}
+  - {id: L1-019-relu,          level: 1, path: level1/19_ReLU.py,
+     notes: "pure bandwidth; 6.4 GB per tensor, tests the 24 GB limit"}
+  - {id: L1-023-softmax,       level: 1, path: level1/23_Softmax.py}
+  - {id: L1-036-rmsnorm,       level: 1, path: level1/36_RMSNorm_.py}
+  - {id: L1-040-layernorm,     level: 1, path: level1/40_LayerNorm.py}
+  - {id: L1-047-sum-reduce,    level: 1, path: level1/47_Sum_reduction_over_a_dimension.py}
+  - {id: L1-063-conv2d,        level: 1, path: level1/63_conv_standard_2D__square_input__square_kernel.py}
+  - {id: L1-089-cumsum,        level: 1, path: level1/89_cumsum.py, notes: "scan"}
+  - {id: L1-097-sdpa,          level: 1, path: level1/97_ScaledDotProductAttention.py}
+
+  # Level 2: operator chains, where fusion pays.
+  - {id: L2-001-conv-relu-bias,     level: 2, path: level2/1_Conv2D_ReLU_BiasAdd.py}
+  - {id: L2-012-gemm-mul-leaky,     level: 2, path: level2/12_Gemm_Multiply_LeakyReLU.py}
+  - {id: L2-017-conv-inorm-div,     level: 2, path: level2/17_Conv2d_InstanceNorm_Divide.py}
+  - {id: L2-018-matmul-reductions,  level: 2, path: level2/18_Matmul_Sum_Max_AvgPool_LogSumExp_LogSumExp.py,
+     notes: "algebraic simplification possible; watch for legitimate vs suspicious speedups"}
+  - {id: L2-029-matmul-mish-mish,   level: 2, path: level2/29_Matmul_Mish_Mish.py}
+  - {id: L2-037-matmul-swish-gn,    level: 2, path: level2/37_Matmul_Swish_Sum_GroupNorm.py}
+  - {id: L2-076-gemm-add-relu,      level: 2, path: level2/76_Gemm_Add_ReLU.py}
+  - {id: L2-099-matmul-gelu-smax,   level: 2, path: level2/99_Matmul_GELU_Softmax.py}
+
+  # Level 3: whole models.
+  - {id: L3-001-mlp,           level: 3, path: level3/1_MLP.py}
+  - {id: L3-009-resnet18,      level: 3, path: level3/9_ResNet18.py}
+  - {id: L3-035-lstm,          level: 3, path: level3/35_LSTM.py,
+     notes: "draws random h0/c0 inside forward(); the harness re-seeds before every forward"}
+  - {id: L3-043-mingpt-attn,   level: 3, path: level3/43_MinGPTCausalAttention.py}
+  - {id: L3-044-minigpt-block, level: 3, path: level3/44_MiniGPTBlock.py}
+  - {id: L3-048-mamba2,        level: 3, path: level3/48_Mamba2ReturnY.py}

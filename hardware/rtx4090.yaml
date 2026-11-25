@@ -1,0 +1,39 @@
+# NVIDIA GeForce RTX 4090 (AD102, Ada Lovelace).
+#
+# verified: false  -> these are spec-sheet figures recalled from NVIDIA's Ada whitepaper, NOT measured
+# and not checked against the document. Before publishing any speed-of-light number:
+#   1. check every value against NVIDIA's "Ada GPU architecture" whitepaper (RTX 4090 column),
+#   2. confirm SM count / L2 / memory with deviceQuery or torch.cuda.get_device_properties,
+#   3. set verified: true and note the source below.
+# Peaks are DENSE (no 2:4 sparsity) at the boost clock. Locked clocks lower the achievable peak.
+verified: false
+source: "UNVERIFIED - fill in after checking the Ada whitepaper"
+
+name: NVIDIA GeForce RTX 4090
+arch: Ada Lovelace
+compute_capability: "8.9"
+sms: 128
+memory_gb: 24
+dram_bandwidth_gbs: 1008        # 21 Gbps GDDR6X x 384-bit / 8
+l2_mb: 72
+boost_clock_mhz: 2520
+
+peaks_tflops:
+  fp32_cuda_core: 82.6
+  tf32_tensor: 82.6             # on GeForce Ada, TF32 tensor rate ~= FP32 CUDA-core rate (CHECK)
+  bf16_tensor_fp32_acc: 165.2
+  fp16_tensor_fp32_acc: 165.2   # GeForce: FP32 accumulate runs at half the FP16-accumulate rate (CHECK)
+  fp16_tensor_fp16_acc: 330.3
+
+sol:
+  # The guard uses the most generous peak, so it can only flag the physically impossible.
+  guard_peak: fp16_tensor_fp16_acc
+  # "% of SOL" in tables uses the precision a correct FP32-task kernel can realistically use.
+  efficiency_peak: tf32_tensor
+  bandwidth_derate: 1.0
+
+# Facts given to agents in their task prompt.
+agent_notes:
+  - "sm_89 (Ada) supports mma.sync, ldmatrix and cp.async (Ampere-style) plus FP8 tensor cores."
+  - "Ada has NO Hopper features: no TMA, no wgmma, no thread-block clusters / distributed shared memory."
+  - "Up to 100 KB shared memory per SM (99 KB usable per block with opt-in) - check with cudaDeviceGetAttribute."

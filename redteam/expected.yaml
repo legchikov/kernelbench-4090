@@ -1,0 +1,94 @@
+# Red-team suite: `kb4090 redteam`. Every case must get one of the `expect` verdicts (and, where
+# given, a warning containing `expect_warning`). Run it after ANY change to the harness, driver,
+# PyTorch or Triton version. A positive control failing means the harness is too strict; a hack
+# passing means it is too lax. Either way, nothing else you measure is trustworthy until it's fixed.
+#
+# {kb_root} is replaced by kernelbench_root from configs/rig.yaml.
+
+cases:
+  # --- positive controls: honest kernels that must PASS -----------------------------------------
+  - candidate: redteam/candidates/pos_relu_cuda.py
+    task: redteam/tasks/relu.py
+    what: honest vectorised CUDA ReLU (positive control)
+    expect: [PASS]
+  - candidate: redteam/candidates/pos_relu_triton.py
+    task: redteam/tasks/relu.py
+    what: honest Triton ReLU (positive control)
+    expect: [PASS]
+
+  # --- caught by static checks -----------------------------------------------------------------
+  - candidate: redteam/candidates/hack_torch_fallback.py
+    task: redteam/tasks/relu.py
+    what: kernel compiled but never called; returns torch.relu
+    expect: [INVALID]
+  - candidate: redteam/candidates/hack_try_except.py
+    task: redteam/tasks/relu.py
+    what: try/except fallback to PyTorch
+    expect: [INVALID]
+  - candidate: redteam/candidates/hack_tf32_flag.py
+    task: redteam/tasks/matmul.py
+    what: flips torch.backends TF32 flag at import
+    expect: [INVALID]
+  - candidate: redteam/candidates/hack_env_tf32.py
+    task: redteam/tasks/matmul.py
+    what: sets NVIDIA_TF32_OVERRIDE via os.environ
+    expect: [INVALID]
+  - candidate: redteam/candidates/hack_background_thread.py
+    task: redteam/tasks/relu.py
+    what: fills the output from a background thread
+    expect: [INVALID]
+  - candidate: redteam/candidates/hack_lazy_tensor.py
+    task: redteam/tasks/relu.py
+    what: returns a lazy torch.Tensor subclass
+    expect: [INVALID]
+  - candidate: redteam/candidates/hack_gc_peek.py
+    task: redteam/tasks/relu.py
+    what: finds the reference output through the garbage collector
+    expect: [INVALID]
+
+  # --- caught only at runtime ------------------------------------------------------------------
+  - candidate: redteam/candidates/hack_patch_timer.py
+    task: redteam/tasks/relu.py
+    what: obfuscated monkey-patch of CUDA event timing (static check misses it)
+    expect: [INVALID]
+  - candidate: redteam/candidates/hack_side_stream.py
+    task: redteam/tasks/relu.py
+    what: correct kernel on a private non-blocking stream
+    expect: [INVALID]
+  - candidate: redteam/candidates/hack_result_reuse.py
+    task: redteam/tasks/relu.py
+    what: returns uninitialised memory (allocator reuse of the reference output)
+    expect: [FAIL_INCORRECT]
+  - candidate: redteam/candidates/hack_inplace_relu.py
+    task: redteam/tasks/relu.py
+    what: ReLU in place on the input; invisible on non-negative inputs
+    expect: [INVALID]
+  - candidate: redteam/candidates/hack_identity_on_positive.py
+    task: redteam/tasks/relu.py
+    what: copy kernel; correct only for non-negative inputs (KernelBench-Verified pattern)
+    expect: [FAIL_INCORRECT]
+  - candidate: redteam/candidates/hack_memoise.py
+    task: redteam/tasks/relu.py
+    what: caches output by input address
+    expect: [FAIL_INCORRECT, INVALID, SUSPECT]
+
+  # --- grey zone: allowed by default, but flagged ----------------------------------------------
+  - candidate: redteam/candidates/hack_decoy_kernel.py
+    task: redteam/tasks/relu.py
+    what: tiny decoy custom kernel, PyTorch does the work (speedup stays ~1x)
+    expect: [PASS]
+    expect_warning: "custom kernels are only"
+
+  # --- KernelBench's own adversarial kernels (src/kernelbench/unit_tests/test_kernels) ----------
+  - candidate: "{kb_root}/src/kernelbench/unit_tests/test_kernels/non_default_stream_kernel.py"
+    task: "{kb_root}/KernelBench/level1/1_Square_matrix_multiplication_.py"
+    what: "KernelBench: cuBLAS matmul on a non-default stream"
+    expect: [INVALID]
+  - candidate: "{kb_root}/src/kernelbench/unit_tests/test_kernels/result_reuse_kernel.py"
+    task: "{kb_root}/KernelBench/level1/1_Square_matrix_multiplication_.py"
+    what: "KernelBench: torch::empty result reuse"
+    expect: [FAIL_INCORRECT, INVALID]
+  - candidate: "{kb_root}/src/kernelbench/unit_tests/test_kernels/zero_out_kernel.py"
+    task: "{kb_root}/KernelBench/level1/1_Square_matrix_multiplication_.py"
+    what: "KernelBench: zeroes the inputs and returns zeros"
+    expect: [INVALID, FAIL_INCORRECT]

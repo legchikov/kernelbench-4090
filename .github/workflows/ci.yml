@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  cpu-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install (CPU PyTorch)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev,plot]"
+      - name: Lint
+        run: ruff check .
+      - name: Shell scripts parse
+        run: for f in scripts/*.sh kb4090/templates/*.sh; do bash -n "$f"; done
+      - name: Unit tests (GPU tests are skipped)
+        run: pytest -q -m "not gpu"

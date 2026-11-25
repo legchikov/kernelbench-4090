@@ -1,0 +1,67 @@
+# Rig configuration: everything that changes a measurement. Results record a hash of this file.
+# Change it before you start collecting results, then leave it alone for the whole study.
+
+gpu_index: 0
+hardware: rtx4090                     # hardware/rtx4090.yaml
+
+# Your KernelBench checkout (relative to this repo, or absolute; $KB_ROOT overrides).
+kernelbench_root: ../KernelBench
+# Pin the commit you benchmark against. `kb4090 env` warns if the checkout differs.
+# This was KernelBench main on 2026-11-25; update it once, deliberately, if you move.
+kernelbench_commit: 423217d9fda91e0c2d67e4a43bf62f96f6d104f1
+
+results_dir: results
+runs_dir: runs
+lock_dir: /var/tmp/kb4090-locks       # shared by every process that times on this GPU
+seed: 42
+
+correctness:
+  seeds: 5                            # different random inputs per seed
+  distributions: [base, x3, x0p01, neg]   # see kb4090/distributions.py
+  atol: 1.0e-2                        # KernelBench's fp32 tolerance
+  rtol: 1.0e-2
+  rel_l2_max: 1.0e-2                  # extra guard so tiny outputs can't pass trivially
+
+dev:                                  # what agents see from ./dev_eval.sh (less than official)
+  seeds: 2
+  distributions: [base]
+  rounds: 3
+  iters_per_round: 10
+
+timing:
+  warmup_iters: 5
+  min_warmup_ms: 200
+  max_warmup_s: 600
+  rounds: 5                           # contenders take turns, order rotates each round
+  iters_per_round: 20
+  l2_flush: true
+  l2_flush_bytes: 268435456           # 256 MiB, well above the 4090's 72 MB L2
+  perturb_inputs: true                # change input values between iterations (anti-caching)
+  spot_checks: 3                      # verify candidate outputs during timing
+  wait_for_idle_s: 120
+  idle_util_pct: 10
+  stream_guard: {enabled: true, ratio: 1.5, slack_ms: 0.05}
+  runtime_window_ms: [1.0, 15.0]      # KernelBench v0.1 sized tasks for 1-15 ms on an H100
+
+baselines: [eager_fp32, eager_tf32]   # add "compile" for torch.compile (slow to warm up)
+headline_baseline: eager_tf32         # report speedups against the stronger baseline
+
+policy:
+  allowed_backends: [cuda, triton]
+  require_custom_kernel: true         # at least one non-library kernel must run
+  min_custom_gpu_fraction: 0.0        # raise to require most GPU time in custom kernels
+  warn_custom_gpu_fraction: 0.2
+  sol_margin: 0.9                     # faster than 0.9 x speed of light -> SUSPECT
+  candidate_tf32: false               # global TF32 flags while timing the candidate
+  static: {}                          # override rule severities, e.g. {try_except: warn}
+  env_allowlist: [TORCH_CUDA_ARCH_LIST, MAX_JOBS]
+
+build:
+  torch_cuda_arch_list: "8.9"         # sm_89 only: faster builds
+  extensions_root: ~/.cache/kb4090/torch_extensions
+
+eval_timeout_s: 1800
+
+# Optional: run every evaluation worker inside a sandbox (no network, read-only filesystem).
+# sandbox_prefix: [scripts/sandbox.sh, --no-net, --rw, "{build_dir}", --rw, "{out_dir}", --rw, "{lock_dir}", --rw, "{tmp}", --]
+sandbox_prefix: null

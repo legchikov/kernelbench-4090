@@ -1,0 +1,4 @@
+.work/
+eat/log/.supervisor_*
+__pycache__/
+*.so

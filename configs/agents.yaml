@@ -1,0 +1,48 @@
+# Agent definitions for `kb4090 run-agent`. Placeholders: {model} {budget_usd} {workdir} {lock_dir}
+# {home} {repo}. The prompt ("Read TASK.md ...") is appended as the last argument.
+#
+# SAFETY: both agents below run with permission prompts disabled, because a headless run has no one
+# to approve commands. `run-agent` refuses to start without a sandbox_prefix unless you pass
+# --no-sandbox-i-understand. Prefer a disposable VM or container with no credentials in it.
+
+defaults:
+  budget_usd: 10.0          # per run; use the SAME budget for every agent you compare
+  wall_clock_s: 5400
+
+agents:
+  claude_code:
+    # Headless Claude Code. Verified flags (code.claude.com/docs/en/cli-reference, Nov 2026):
+    #   --max-budget-usd stops the run at the client-side cost estimate (print mode only)
+    #   --output-format stream-json needs --verbose; the final "result" event has total_cost_usd
+    command: [claude, -p, --output-format, stream-json, --verbose, --model, "{model}",
+              --max-budget-usd, "{budget_usd}", --permission-mode, bypassPermissions,
+              --no-session-persistence]
+    prompt_via: arg
+    model: opus
+    output: claude_stream_json
+    native_budget: true
+    # Example sandbox (adjust paths; Claude Code needs its config dir and network for the API):
+    # sandbox_prefix: [scripts/sandbox.sh, --rw, "{workdir}", --rw, "{lock_dir}",
+    #                  --rw, "{home}/.claude", --rw, "{home}/.claude.json", --rw, "{home}/.cache", --]
+
+  dsh:
+    # DeepSeek Harness, headless profile, newline-delimited JSON events.
+    #   dsh --profile headless --json "task"    (developer preview: pin the version you use)
+    # DSH_PERMISSION_MODE: read-only | workspace-write (default) | danger-full-access.
+    # Headless runs can't answer approval prompts, so shell commands need danger-full-access:
+    # only ever inside a sandbox, VM or container.
+    command: [dsh, --profile, headless, --json]
+    prompt_via: arg
+    model: deepseek-v4-pro   # informational: dsh picks its model from ~/.dsh/cordis.patch.yml
+                             # (agent-default-model) or a --patch overlay; add [--patch, file] above
+    env:
+      DSH_PERMISSION_MODE: danger-full-access
+      # DEEPSEEK_API_KEY comes from your environment; never write keys in this file
+    output: dsh_json
+    native_budget: false     # we meter tokens from step_end events and stop at the budget
+    usage_is_cumulative: false   # CHECK on one run: are step_end usages per-step or running totals?
+    prices_usd_per_mtok:     # FILL IN from DeepSeek's current pricing page before running.
+      input: null            # USD per 1M input tokens (cache miss)
+      cached_input: null     # USD per 1M cached input tokens (cache hit)
+      output: null           # USD per 1M output tokens
+      input_includes_cached: true   # DeepSeek's prompt_tokens include cache hits
